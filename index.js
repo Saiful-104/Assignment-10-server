@@ -41,12 +41,15 @@ const uri =
          const db= client.db("Assignment-10")
 
          const artworksCollection = db.collection("artworks");
+         const likesCollection = db.collection("likes")
+         const favoritesCollection = db.collection("favorites")
+          const usersCollection = db.collection("users");
 
 
          app.get("/artworks", async(req,res)=>{
                 const result = await artworksCollection.find({ visibility: "Public" }).toArray()
                 res.send(result)
-         })
+         });
 
          app.get ("/artworks/:id", async (req,res)=> {
              const {id} = req.params;
@@ -58,11 +61,103 @@ const uri =
            
             res.send ({ success: true, result })
 
-         })
+         });
 
        app.post("/artworks", async ( req,res)=>{
-        
-       })  
+           const data = req.body;
+           data.createdAt = new Date();
+           data.likes = 0;
+           const result = await artworksCollection.insertOne(data);
+           res.send({success: true, result})
+       })  ;
+
+       //update
+
+       app.put ("/artworks/:id", async (req,res)=>{
+        const id= req.params;
+            const data = req.body;
+            const filter = {_id: new ObjectId(id)};
+
+            const update = {$set: data};
+
+            const result = await artworksCollection.updateOne(filter,update);
+
+            res.send({success: true , result});
+       })
+
+       //delete 
+
+       app.delete("/artworks/:id", async(req,res) => {
+           const {id} = req.params;
+           const result =  await artworksCollection.deleteOne({_id: new ObjectId(id)});
+           res.send({success: true , result})
+       })
+
+        //latest 6 artworks
+
+        app.get("/latest-artworks", async (req,res)=>{
+             const result = await artworksCollection.find({visibility:"Public"}).sort({createdAt:-1}).limit(6).toArray();
+             res.send(result)
+
+        })
+
+//user's artworks 
+      app.get("/my-artworks", async (req,res)=>{
+         const email = req.user.email;
+        const result =  await artworksCollection.find({userEmail : email}).toArray()
+        res.send (result)
+
+      })
+
+      //Like / Unlike artwork
+      app.post("/artworks/:id/like", async(req,res)=>{
+           const {id} = req.params;
+           const userId=  req.user.uid;
+
+           const existingLike = await likesCollection.findOne({artworkId: id, userId})
+           if(existingLike){
+            await likesCollection.deleteOne({_id: existingLike._id})
+            await artworksCollection.updateOne({_id: new ObjectId(id)}, {$inc: {likes:-1}})
+
+            res.send({success:true,liked: false});
+           }
+           else{
+             await likesCollection.insertOne({ artworkId: id, userId });
+        await artworksCollection.updateOne({ _id: new ObjectId(id) }, { $inc: { likes: 1 } });
+        res.send({ success: true, liked: true });
+           }
+
+      })
+
+     // Add / Remove favorite
+
+     app.post ("/artworks/:id/favorite", async(req,res)=>{
+        const {id} = req.params;
+        const userId=  req.user.uid;
+        const userEmail = req.user.email;
+        const existingFavorite = await favoritesCollection.findOne({ artworkId: id, userId });
+         if(existingFavorite){
+            await favoritesCollection.deleteOne({ _id: existingFavorite._id });
+        res.send({ success: true, favorited: false });
+         }
+         else{
+            await favoritesCollection.insertOne({ artworkId: id, userId, userEmail });
+        res.send({ success: true, favorited: true });
+         }
+     })
+
+     // user's favorites
+
+     app.get("/my-favorites", async(req,res) =>{
+         const  userId = req.user.uid;
+         const favorites = await favoritesCollection.find({userId}).toArray();
+         const artworkIds = favorites.map((fav)=> new ObjectId(fav.artworkId))
+         const artworks = await  artworksCollection.find({_id: {$in: artworkIds}}).toArray()
+         res.send(artworks)
+
+     })
+
+
 
        
 

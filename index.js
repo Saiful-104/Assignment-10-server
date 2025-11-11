@@ -33,6 +33,26 @@ const uri =
   },
 });
   
+ const verifyToken = async(req,res,next) => {
+    const authorization = req.headers.authorization;
+
+    if(!authorization){
+        return res.status(401).send({message : "Unauthorized access. Token not found"  });
+
+    }
+    const token = authorization.split(" ")[1];
+
+    try {
+        const decodedToken = await admin.auth().verifyIdToken(token);
+        req.user = decodedToken;
+        next();
+    }
+    catch(error){
+        return res.status(401).send({message: "Unauthorized access. Invalid token" })
+    }
+
+ }
+ 
    async function run() {
     try{
      
@@ -63,7 +83,7 @@ const uri =
 
          });
 
-       app.post("/artworks", async ( req,res)=>{
+       app.post("/artworks", verifyToken , async ( req,res)=>{
            const data = req.body;
            data.createdAt = new Date();
            data.likes = 0;
@@ -73,7 +93,7 @@ const uri =
 
        //update
 
-       app.put ("/artworks/:id", async (req,res)=>{
+       app.put ("/artworks/:id",verifyToken , async (req,res)=>{
         const id= req.params;
             const data = req.body;
             const filter = {_id: new ObjectId(id)};
@@ -87,7 +107,7 @@ const uri =
 
        //delete 
 
-       app.delete("/artworks/:id", async(req,res) => {
+       app.delete("/artworks/:id",verifyToken , async(req,res) => {
            const {id} = req.params;
            const result =  await artworksCollection.deleteOne({_id: new ObjectId(id)});
            res.send({success: true , result})
@@ -102,7 +122,7 @@ const uri =
         })
 
 //user's artworks 
-      app.get("/my-artworks", async (req,res)=>{
+      app.get("/my-artworks",verifyToken , async (req,res)=>{
          const email = req.user.email;
         const result =  await artworksCollection.find({userEmail : email}).toArray()
         res.send (result)
@@ -110,7 +130,7 @@ const uri =
       })
 
       //Like / Unlike artwork
-      app.post("/artworks/:id/like", async(req,res)=>{
+      app.post("/artworks/:id/like", verifyToken , async(req,res)=>{
            const {id} = req.params;
            const userId=  req.user.uid;
 
@@ -131,7 +151,7 @@ const uri =
 
      // Add / Remove favorite
 
-     app.post ("/artworks/:id/favorite", async(req,res)=>{
+     app.post ("/artworks/:id/favorite",verifyToken , async(req,res)=>{
         const {id} = req.params;
         const userId=  req.user.uid;
         const userEmail = req.user.email;
@@ -148,7 +168,7 @@ const uri =
 
      // user's favorites
 
-     app.get("/my-favorites", async(req,res) =>{
+     app.get("/my-favorites",verifyToken , async(req,res) =>{
          const  userId = req.user.uid;
          const favorites = await favoritesCollection.find({userId}).toArray();
          const artworkIds = favorites.map((fav)=> new ObjectId(fav.artworkId))
@@ -157,7 +177,66 @@ const uri =
 
      })
 
+     //search 
+      app.get("/search", async (req, res) => {
+      const search_text = req.query.search;
+      const category = req.query.category;
+      let query = { visibility: "Public" };
 
+      if (search_text) {
+        query.$or = [
+          { title: { $regex: search_text, $options: "i" } },
+          { artistName: { $regex: search_text, $options: "i" } },
+        ];
+      }
+
+      if (category) {
+        query.category = category;
+      }
+
+      const result = await artworksCollection.find(query).toArray();
+      res.send(result);
+    });
+  
+     // ✅ Get top artists
+    app.get("/top-artists", async (req, res) => {
+      const result = await artworksCollection
+        .aggregate([
+          { $match: { visibility: "Public" } },
+          { $group: { _id: "$artistName", count: { $sum: 1 } } },
+          { $sort: { count: -1 } },
+          { $limit: 5 },
+        ])
+        .toArray();
+      res.send(result);
+    });
+   
+     
+    // ✅ Get or Create user
+    app.get("/user", verifyToken , async (req, res) => {
+      const email = req.user.email;
+      let user = await usersCollection.findOne({ email });
+      if (!user) {
+        user = {
+          name: req.user.name || "User",
+          email,
+          photoURL: req.user.picture || "",
+          createdAt: new Date(),
+        };
+        await usersCollection.insertOne(user);
+      }
+      res.send(user);
+    });
+
+     // ✅ Update user profile
+    app.put("/user", verifyToken , async (req, res) => {
+      const email = req.user.email;
+      const data = req.body;
+      const filter = { email };
+      const update = { $set: data };
+      const result = await usersCollection.updateOne(filter, update);
+      res.send({ success: true, result });
+    });
 
        
 

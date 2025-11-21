@@ -11,7 +11,7 @@ const admin = require("firebase-admin")
 const serviceAccount = require("./serviceKey.json");
 const app = express();
 
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 3000;
 
 
 app.use(cors());
@@ -40,11 +40,12 @@ const uri =
         return res.status(401).send({message : "Unauthorized access. Token not found"  });
 
     }
-    const token = authorization.split(" ")[1];
+    const token = authorization.split(' ')[1];
 
     try {
-        const decodedToken = await admin.auth().verifyIdToken(token);
-        req.user = decodedToken;
+      // await admin.auth().verifyIdToken(token);
+           const decodedToken = await admin.auth().verifyIdToken(token);
+    req.user = decodedToken; 
         next();
     }
     catch(error){
@@ -67,7 +68,7 @@ const uri =
 
 
          app.get("/artworks", async(req,res)=>{
-                const result = await artworksCollection.find({ visibility: "Public" }).toArray()
+                const result = await artworksCollection.find({ visibility: { $regex: /^public$/i }}).toArray()
                 res.send(result)
          });
 
@@ -82,8 +83,11 @@ const uri =
             res.send ({ success: true, result })
 
          });
+         // post method
+    //  insertOne
+    //  insertMany
 
-       app.post("/artworks", verifyToken , async ( req,res)=>{
+       app.post("/artworks", async ( req,res)=>{
            const data = req.body;
            data.createdAt = new Date();
            data.likes = 0;
@@ -93,8 +97,8 @@ const uri =
 
        //update
 
-       app.put ("/artworks/:id",verifyToken , async (req,res)=>{
-        const id= req.params;
+       app.put ("/artworks/:id" , async (req,res)=>{
+        const  {id}= req.params;
             const data = req.body;
             const filter = {_id: new ObjectId(id)};
 
@@ -107,7 +111,7 @@ const uri =
 
        //delete 
 
-       app.delete("/artworks/:id",verifyToken , async(req,res) => {
+       app.delete("/artworks/:id", async(req,res) => {
            const {id} = req.params;
            const result =  await artworksCollection.deleteOne({_id: new ObjectId(id)});
            res.send({success: true , result})
@@ -116,7 +120,7 @@ const uri =
         //latest 6 artworks
 
         app.get("/latest-artworks", async (req,res)=>{
-             const result = await artworksCollection.find({visibility:"Public"}).sort({createdAt:-1}).limit(6).toArray();
+             const result = await artworksCollection.find({ visibility: { $regex: /^public$/i }}).sort({createdAt:-1}).limit(6).toArray();
              res.send(result)
 
         })
@@ -130,7 +134,7 @@ const uri =
       })
 
       //Like / Unlike artwork
-      app.post("/artworks/:id/like", verifyToken , async(req,res)=>{
+      app.post("/artworks/:id/like" ,verifyToken, async(req,res)=>{
            const {id} = req.params;
            const userId=  req.user.uid;
 
@@ -213,7 +217,7 @@ const uri =
    
      
     // ✅ Get or Create user
-    app.get("/user", verifyToken , async (req, res) => {
+    app.get("/user",verifyToken, async (req, res) => {
       const email = req.user.email;
       let user = await usersCollection.findOne({ email });
       if (!user) {
@@ -229,7 +233,7 @@ const uri =
     });
 
      // ✅ Update user profile
-    app.put("/user", verifyToken , async (req, res) => {
+    app.put("/user",  async (req, res) => {
       const email = req.user.email;
       const data = req.body;
       const filter = { email };

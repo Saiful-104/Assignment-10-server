@@ -79,8 +79,33 @@ const uri =
            if(!result){
               return res.status(404).send({message: "Artwork not found" })
            }
+
+           let liked = false;
+            let favorited = false;
+            const token = req.headers.authorization?.split(' ')[1];
+            if (token) {
+              try {
+                const decodedToken = await admin.auth().verifyIdToken(token);
+                const userId = decodedToken.uid;
+                const isLiked = await likesCollection.findOne({ artworkId: id, userId });
+                liked = !!isLiked;
+                const isFavorited = await favoritesCollection.findOne({ artworkId: id, userId });
+                favorited = !!isFavorited;
+              //  console.log("aaaa",decodedToken);
+              }
+              catch(err){
+                 console.log("Invalid token on detail page");
+              }
+            } 
+
            
-            res.send ({ success: true, result })
+            res.send ({ success: true,
+               result:{
+                ...result,
+                liked,
+                favorited,
+               },
+               })
 
          });
          // post method

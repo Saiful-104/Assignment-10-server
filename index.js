@@ -122,25 +122,71 @@ const uri =
 
        //update
 
-       app.put ("/artworks/:id" , async (req,res)=>{
-        const  {id}= req.params;
-            const data = req.body;
-            const filter = {_id: new ObjectId(id)};
+      //  app.put ("/artworks/:id" , async (req,res)=>{
+      //   const  {id}= req.params;
+      //       const data = req.body;
+      //       const filter = {_id: new ObjectId(id)};
 
-            const update = {$set: data};
+      //       const update = {$set: data};
 
-            const result = await artworksCollection.updateOne(filter,update);
+      //       const result = await artworksCollection.updateOne(filter,update);
 
-            res.send({success: true , result});
-       })
+      //       res.send({success: true , result});
+      //  })
+   
+      // In your PUT route, you should also return the updated document
+app.put("/artworks/:id", verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    let data = req.body;
 
-       //delete 
+    if (data.price) data.price = Number(data.price);
 
-       app.delete("/artworks/:id", async(req,res) => {
-           const {id} = req.params;
-           const result =  await artworksCollection.deleteOne({_id: new ObjectId(id)});
-           res.send({success: true , result})
-       })
+    const filter = { _id: new ObjectId(id), userEmail: req.user.email };
+    const update = { $set: data };
+
+    const result = await artworksCollection.updateOne(filter, update);
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Artwork not found or unauthorized" 
+      });
+    }
+
+    // Optional: Return updated document
+    const updatedArtwork = await artworksCollection.findOne({ _id: new ObjectId(id) });
+
+    res.json({ success: true, result, artwork: updatedArtwork });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+});
+
+       //delete  
+
+      //  app.delete("/artworks/:id", async(req,res) => {
+      //      const {id} = req.params;
+      //      const result =  await artworksCollection.deleteOne({_id: new ObjectId(id)});
+      //      res.send({success: true , result})
+      //  })
+      app.delete("/artworks/:id", verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await artworksCollection.deleteOne({ _id: new ObjectId(id), userEmail: req.user.email });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ success: false, message: "Artwork not found or unauthorized" });
+    }
+
+    res.json({ success: true, result });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+});
+
 
         //latest 6 artworks
 
@@ -151,12 +197,41 @@ const uri =
         })
 
 //user's artworks 
-      app.get("/my-artworks",verifyToken , async (req,res)=>{
-         const email = req.user.email;
-        const result =  await artworksCollection.find({userEmail : email}).toArray()
-        res.send (result)
+      // app.get("/my-artworks",verifyToken , async (req,res)=>{
+      //    const email = req.user.email;
+      //   const result =  await artworksCollection.find({userEmail : email}).toArray()
+      //   res.send (result)
 
-      })
+      // })
+//   app.get("/my-artworks", verifyToken, async (req, res) => {
+//   const email = req.user.email;
+//   const result = await artworksCollection.find({ userEmail: email }).toArray();
+
+//   const formatted = result.map(a => ({
+//     ...a,
+//     _id: a._id.toString(),
+//     price: typeof a.price === "object" ? parseInt(a.price.$numberInt) : a.price,
+//     likes: typeof a.likes === "object" ? parseInt(a.likes.$numberInt) : a.likes
+//   }));
+
+//   res.send(formatted);
+// });
+    app.get("/my-artworks", verifyToken, async (req, res) => {
+  const email = req.user.email;
+  const result = await artworksCollection.find({ userEmail: email }).toArray();
+
+  const formatted = result.map(a => ({
+    ...a,
+    _id: a._id.toString(),
+    price: typeof a.price === "object" ? parseInt(a.price.$numberInt) : a.price,
+    likes: typeof a.likes === "object" ? parseInt(a.likes.$numberInt) : a.likes
+  }));
+
+  res.json(formatted);
+});
+
+
+
 
       //Like / Unlike artwork
       app.post("/artworks/:id/like" ,verifyToken, async(req,res)=>{
@@ -198,13 +273,41 @@ const uri =
      // user's favorites
 
      app.get("/my-favorites",verifyToken , async(req,res) =>{
-         const  userId = req.user.uid;
+         try{
+            const  userId = req.user.uid;
          const favorites = await favoritesCollection.find({userId}).toArray();
          const artworkIds = favorites.map((fav)=> new ObjectId(fav.artworkId))
          const artworks = await  artworksCollection.find({_id: {$in: artworkIds}}).toArray()
-         res.send(artworks)
-
+         const formatted = artworks.map(a => ({
+    ...a,
+    _id: a._id.toString(),
+    price: typeof a.price === "object" ? parseInt(a.price.$numberInt) : a.price,
+    likes: typeof a.likes === "object" ? parseInt(a.likes.$numberInt) : a.likes
+  }));
+   res.json(formatted);
+         }
+          catch(err){
+            res.status(500).send({ error: "Failed to fetch favorites" });
+         }
      })
+
+     app.delete("/my-favorites/:artworkId", verifyToken, async (req, res) => {
+  try {
+    const { artworkId } = req.params;
+    const userId = req.user.uid;
+
+   // console.log("Attempting to delete:", { artworkId, userId });
+    const result = await favoritesCollection.deleteOne({artworkId:artworkId,userId:userId})
+    console.log("Delete result:", result);
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ success: false, message: "Favorite not found" });
+    }
+    res.json({ success: true, result });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+})
 
      //search 
       app.get("/search", async (req, res) => {

@@ -310,25 +310,35 @@ app.put("/artworks/:id", verifyToken, async (req, res) => {
 })
 
      //search 
-      app.get("/search", async (req, res) => {
-      const search_text = req.query.search;
-      const category = req.query.category;
-      let query = { visibility: "Public" };
+   //search 
+app.get("/search", async (req, res) => {
+  try {
+    const search_text = req.query.search;
+    const category = req.query.category;
+    
+    // ✅ Case-insensitive visibility check
+    let query = { visibility: { $regex: /^public$/i } };
 
-      if (search_text) {
-        query.$or = [
-          { title: { $regex: search_text, $options: "i" } },
-          { artistName: { $regex: search_text, $options: "i" } },
-        ];
-      }
+    // Search by title or artist name
+    if (search_text && search_text.trim()) {
+      query.$or = [
+        { title: { $regex: search_text, $options: "i" } },
+        { artistName: { $regex: search_text, $options: "i" } },
+      ];
+    }
 
-      if (category) {
-        query.category = category;
-      }
+    // ✅ Filter by category (case-insensitive)
+    if (category && category.trim()) {
+      query.category = { $regex: `^${category}$`, $options: "i" };
+    }
 
-      const result = await artworksCollection.find(query).toArray();
-      res.send(result);
-    });
+    const result = await artworksCollection.find(query).toArray();
+    res.send(result);
+  } catch (error) {
+    console.error("Search error:", error);
+    res.status(500).send({ error: "Failed to search artworks" });
+  }
+});
   
      // ✅ Get top artists
     app.get("/top-artists", async (req, res) => {

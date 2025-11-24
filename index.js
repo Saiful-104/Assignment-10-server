@@ -57,7 +57,7 @@ const uri =
    async function run() {
     try{
      
-         await client.connect() ; 
+        // await client.connect() ; 
 
          const db= client.db("Assignment-10")
 
@@ -120,19 +120,8 @@ const uri =
            res.send({success: true, result})
        })  ;
 
-       //update
-
-      //  app.put ("/artworks/:id" , async (req,res)=>{
-      //   const  {id}= req.params;
-      //       const data = req.body;
-      //       const filter = {_id: new ObjectId(id)};
-
-      //       const update = {$set: data};
-
-      //       const result = await artworksCollection.updateOne(filter,update);
-
-      //       res.send({success: true , result});
-      //  })
+        
+      
    
       // In your PUT route, you should also return the updated document
 app.put("/artworks/:id", verifyToken, async (req, res) => {
@@ -164,13 +153,7 @@ app.put("/artworks/:id", verifyToken, async (req, res) => {
   }
 });
 
-       //delete  
-
-      //  app.delete("/artworks/:id", async(req,res) => {
-      //      const {id} = req.params;
-      //      const result =  await artworksCollection.deleteOne({_id: new ObjectId(id)});
-      //      res.send({success: true , result})
-      //  })
+      
       app.delete("/artworks/:id", verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -196,26 +179,7 @@ app.put("/artworks/:id", verifyToken, async (req, res) => {
 
         })
 
-//user's artworks 
-      // app.get("/my-artworks",verifyToken , async (req,res)=>{
-      //    const email = req.user.email;
-      //   const result =  await artworksCollection.find({userEmail : email}).toArray()
-      //   res.send (result)
 
-      // })
-//   app.get("/my-artworks", verifyToken, async (req, res) => {
-//   const email = req.user.email;
-//   const result = await artworksCollection.find({ userEmail: email }).toArray();
-
-//   const formatted = result.map(a => ({
-//     ...a,
-//     _id: a._id.toString(),
-//     price: typeof a.price === "object" ? parseInt(a.price.$numberInt) : a.price,
-//     likes: typeof a.likes === "object" ? parseInt(a.likes.$numberInt) : a.likes
-//   }));
-
-//   res.send(formatted);
-// });
     app.get("/my-artworks", verifyToken, async (req, res) => {
   const email = req.user.email;
   const result = await artworksCollection.find({ userEmail: email }).toArray();
@@ -316,7 +280,7 @@ app.get("/search", async (req, res) => {
     const search_text = req.query.search;
     const category = req.query.category;
     
-    // ✅ Case-insensitive visibility check
+    //  Case-insensitive visibility check
     let query = { visibility: { $regex: /^public$/i } };
 
     // Search by title or artist name
@@ -327,7 +291,7 @@ app.get("/search", async (req, res) => {
       ];
     }
 
-    // ✅ Filter by category (case-insensitive)
+    // Filter by category 
     if (category && category.trim()) {
       query.category = { $regex: `^${category}$`, $options: "i" };
     }
@@ -340,7 +304,6 @@ app.get("/search", async (req, res) => {
   }
 });
   
-     // ✅ Get top artists
     app.get("/top-artists", async (req, res) => {
       const result = await artworksCollection
         .aggregate([
@@ -354,23 +317,9 @@ app.get("/search", async (req, res) => {
     });
    
      
-    // ✅ Get or Create user
-    app.get("/user",verifyToken, async (req, res) => {
-      const email = req.user.email;
-      let user = await usersCollection.findOne({ email });
-      if (!user) {
-        user = {
-          name: req.user.name || "User",
-          email,
-          photoURL: req.user.picture || "",
-          createdAt: new Date(),
-        };
-        await usersCollection.insertOne(user);
-      }
-      res.send(user);
-    });
 
-     // ✅ Update user profile
+
+    
     app.put("/user",  async (req, res) => {
       const email = req.user.email;
       const data = req.body;

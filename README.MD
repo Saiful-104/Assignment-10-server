@@ -4,7 +4,7 @@ Node.js + Express REST API for the Artify platform.
 
 ## 🌐 Live Server
 
-(Add link here)
+https://imaginative-gelato-d4c5f1.netlify.app/ 
 
 ## ✨ Features
 
